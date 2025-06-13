@@ -65,10 +65,7 @@ coverage.xml
 # VS Code
 .vscode/
 
-# Data and vectorstore
-vectorstore/db_faiss/
-data/*.xlsx
-data/*.pdf
+
 
 # OS files
 .DS_Store
