@@ -1,0 +1,12 @@
+streamlit
+langchain
+langchain-community
+langchain-huggingface
+faiss-cpu
+pypdf
+unstructured[all]
+python-dotenv
+huggingface_hub
+torch
+google-search-results
+pytest 
