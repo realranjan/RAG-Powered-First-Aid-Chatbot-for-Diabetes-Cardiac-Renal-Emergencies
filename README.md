@@ -1,5 +1,7 @@
 # RAG-Powered First-Aid Chatbot for Diabetes, Cardiac & Renal Emergencies
 
+[Live Demo](https://rag-powered-first-aid-chatbot-for-diabetes-cardiac-renal-emerg.streamlit.app/)
+
 ## Mission Statement
 Build a patient-safety–aware chatbot that combines local knowledge embeddings with real-time web evidence to deliver actionable first-aid guidance, always prefaced with a clinical disclaimer.
 
