@@ -1,6 +1,5 @@
 # RAG-Powered First-Aid Chatbot for Diabetes, Cardiac & Renal Emergencies
 
-[Live Demo](https://rag-powered-first-aid-chatbot-for-diabetes-cardiac-renal-emerg.streamlit.app/)
 
 ## Mission Statement
 Build a patient-safety–aware chatbot that combines local knowledge embeddings with real-time web evidence to deliver actionable first-aid guidance, always prefaced with a clinical disclaimer.
@@ -17,6 +16,8 @@ Build a patient-safety–aware chatbot that combines local knowledge embeddings 
 3.  **Answer Generation:** Produce ≤ 250-word response with: condition, first-aid steps, key medicine(s), and source citations. All answers are always prefixed with a clinical disclaimer.
 
 ## Focus Areas
+
+The chatbot is designed to answer any question about the following emergencies:
 
 *   **Diabetes:** Type 1, Type 2, Gestational, ketoacidosis, hypoglycaemia.
 *   **Cardiac:** Myocardial infarction, angina, arrhythmia, heart failure.
@@ -57,8 +58,11 @@ Build a patient-safety–aware chatbot that combines local knowledge embeddings 
      ```
 5. **Run the chatbot**
    ```bash
-   streamlit run src/medibot.py
+   streamlit run medibot.py
+   # or, alternatively
+   python -m streamlit run src/medibot.py
    ```
+   
 6. **Run automated tests**
    ```bash
    pytest tests/test_sample_queries.py
@@ -70,9 +74,15 @@ Build a patient-safety–aware chatbot that combines local knowledge embeddings 
 - The chatbot will:
   - Preface every answer with a clinical disclaimer (enforced in all code paths)
   - Infer the most likely condition
-  - Provide first-aid steps and key medicines
-  - Cite both local and web sources
-  - Refuse to answer out-of-scope questions
+  - Provide first-aid steps as a numbered list
+  - List key medicines as bullet points (if relevant)
+  - Cite sources as a bulleted list of proper references/links (no Local[x] or Web[x] artifacts)
+  - Output answers in a structured format:
+    - **Inferred Condition:**
+    - **First-Aid Steps:** (numbered)
+    - **Key Medicine(s):** (bulleted)
+    - **Sources:** (bulleted, with links)
+  - Keep answers concise and ≤ 250 words
 
 **Sample Queries:**
 - "I'm sweating, shaky, and my glucometer reads 55 mg/dL—what should I do right now?"
@@ -83,7 +93,7 @@ Build a patient-safety–aware chatbot that combines local knowledge embeddings 
 - **Retrieval:** Combines local semantic search (FAISS + MiniLM) and Serper.dev web search for up-to-date evidence.
 - **Fusion & Ranking:** Uses keyword overlap for simple, transparent ranking. More advanced semantic ranking could be added.
 - **LLM:** Uses Mistral-7B-Instruct-v0.3 via HuggingFace Endpoint for cost and performance balance.
-- **Safety:** Strict domain restriction, always includes a clinical disclaimer, and refuses out-of-scope queries.
+- **Safety:** Always includes a clinical disclaimer to reinforce that the information is not a substitute for professional medical advice.
 - **Testing:** Automated pytest script for the 10 sample queries ensures core requirements are met.
 
 ## Known Limitations

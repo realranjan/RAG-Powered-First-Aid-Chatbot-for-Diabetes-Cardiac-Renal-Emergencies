@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
@@ -8,6 +8,7 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from dotenv import load_dotenv, find_dotenv
 import re
+import traceback
 
 # Load environment variables
 load_dotenv(find_dotenv())
@@ -64,34 +65,47 @@ def build_context(snippets):
 # --- Prompt Template ---
 CLINICAL_DISCLAIMER = (
     "**Disclaimer:** This information is for educational purposes only and is not a substitute for professional medical advice. "
-    "Always consult a qualified healthcare provider in an emergency."
+    "In case of an emergency, always consult a qualified healthcare provider or call local emergency services immediately."
 )
 
 CUSTOM_PROMPT_TEMPLATE = f"""{CLINICAL_DISCLAIMER}
 
-You are a first-aid assistant for ONLY the following emergencies:
-- Diabetes (Type 1, Type 2, Gestational, ketoacidosis, hypoglycaemia)
-- Cardiac (Myocardial infarction, angina, arrhythmia, heart failure)
-- Renal (AKI, CKD, hyperkalaemia, dialysis crises)
+You are a First-Aid Chatbot trained to assist with the following medical emergencies only:
+- **Diabetes:** Type 1, Type 2, Gestational Diabetes, Diabetic Ketoacidosis (DKA), Hypoglycaemia
+- **Cardiac:** Myocardial Infarction (Heart Attack), Angina, Arrhythmia, Congestive Heart Failure
+- **Renal:** Acute Kidney Injury (AKI), Chronic Kidney Disease (CKD), Hyperkalaemia, Dialysis-related Crises
 
-If the user's question is NOT about these, politely reply: "Sorry, I can only answer questions about diabetes, cardiac, or renal emergencies."
+**Instructions:**
+From the user's free-text symptom description:
+1. **Triage / Diagnosis:** Infer the most likely emergency condition (within the categories above) and start your answer with "Inferred Condition:".
+2. **Answer Generation:** Provide a concise (≤ 250 words) response including:
+   - Inferred Condition (as a bold heading)
+   - First-Aid Steps (as a numbered list)
+   - Key Medicine(s) (as a bullet list, only if relevant)
+   - Sources (as a bulleted list of proper references/links, do not use Local[x] or Web[x])
 
-1. Triage/Diagnosis: Infer the most likely condition from the symptoms (if in scope).
-2. First-aid: List immediate steps and key medicine(s) if any.
-3. Citations: Cite sources for each fact.
-If you don't know, say so. Do not make up answers.
-Limit your answer to 250 words.
+**Important Rules:**
+- Only output the final answer for the user — no greetings, internal reasoning, or extra commentary.
+- Do not show internal citations like Local[x] or Web[x].
+- Keep everything within 250 words.
 
 Context: {{context}}
 Question: {{question}}
 
-Start the answer directly. No small talk."""
+Begin your response directly below.
+"""
+
+def truncate_to_word_limit(text, limit=240):
+    words = text.split()
+    if len(words) > limit:
+        return ' '.join(words[:limit]) + '...'
+    return text
 
 def set_custom_prompt():
     return PromptTemplate(template=CUSTOM_PROMPT_TEMPLATE, input_variables=["context", "question"])
 
 def load_llm():
-    huggingface_repo_id = "mistralai/Mistral-7B-Instruct-v0.3"
+    huggingface_repo_id = "mistralai/Mixtral-8x7B-Instruct-v0.1"  # User requested model
     HF_TOKEN = os.environ.get("HF_TOKEN")
     if not HF_TOKEN:
         raise ValueError("HF_TOKEN not set in environment variables or .env file.")
@@ -103,18 +117,14 @@ def load_llm():
     )
     return llm
 
-# Add a function to check if the query is in scope
-def is_in_scope(query):
-    allowed_keywords = [
-        "diabetes", "type 1", "type 2", "gestational", "ketoacidosis", "hypoglycaemia",
-        "cardiac", "myocardial infarction", "angina", "arrhythmia", "heart failure",
-        "renal", "aki", "ckd", "hyperkalaemia", "dialysis"
-    ]
-    query_lower = query.lower()
-    return any(word in query_lower for word in allowed_keywords)
-
 def get_answer_with_disclaimer(response):
     return f"{CLINICAL_DISCLAIMER}\n\n{response}"
+
+def clean_citations(text):
+    # Remove Local[x] and Web[x] citations
+    text = re.sub(r"Local\[\d+\]:[^\n]*\n?", "", text)
+    text = re.sub(r"Web\[\d+\]:[^\n]*\n?", "", text)
+    return text
 
 # --- Streamlit UI ---
 def main():
@@ -132,16 +142,6 @@ def main():
     if prompt:
         st.chat_message('user').markdown(prompt)
         st.session_state.messages.append({'role': 'user', 'content': prompt})
-        # Out-of-scope check
-        if not is_in_scope(prompt):
-            out_of_scope_msg = (
-                "Sorry, I can only answer questions about diabetes, cardiac, or renal emergencies "
-                "(including: Type 1/2 diabetes, gestational diabetes, ketoacidosis, hypoglycaemia, "
-                "myocardial infarction, angina, arrhythmia, heart failure, AKI, CKD, hyperkalaemia, dialysis crises)."
-            )
-            st.chat_message('assistant').markdown(out_of_scope_msg)
-            st.session_state.messages.append({'role': 'assistant', 'content': out_of_scope_msg})
-            return
         try:
             vectorstore = get_vectorstore()
             retriever = vectorstore.as_retriever(search_kwargs={'k': 5})
@@ -156,17 +156,13 @@ def main():
             prompt_input = prompt_template.format(context=context, question=prompt)
             response = llm.invoke(prompt_input)
             result = get_answer_with_disclaimer(response)
-            # Build citations
-            citations = []
-            for i, doc in enumerate(local_docs):
-                citations.append(f"Local[{i+1}]: {getattr(doc, 'metadata', {}).get('source', 'local snippet')}")
-            for i, doc in enumerate(web_docs):
-                citations.append(f"Web[{i+1}]: {doc.get('link', '')}")
-            result_to_show = result + "\n\n**Citations:**\n" + "\n".join(citations)
-            st.chat_message('assistant').markdown(result_to_show)
-            st.session_state.messages.append({'role': 'assistant', 'content': result_to_show})
+            result = truncate_to_word_limit(result, 250)
+            result = clean_citations(result)
+            st.chat_message('assistant').markdown(result)
+            st.session_state.messages.append({'role': 'assistant', 'content': result})
         except Exception as e:
             st.error(f"Error: {str(e)}")
+            st.error(traceback.format_exc())
 
 if __name__ == "__main__":
     main()
