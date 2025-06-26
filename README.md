@@ -6,6 +6,18 @@ Build a patient-safety–aware chatbot that combines local knowledge embeddings 
 
 **Disclaimer:** "This information is for educational purposes only and is not a substitute for professional medical advice."
 
+---
+
+**Resume-Ready Project Summary (Bullet Points):**
+
+- Developed a patient-safety–focused RAG (Retrieval-Augmented Generation) chatbot for first-aid guidance in diabetes, cardiac, and renal emergencies.
+- Achieved 100% compliance with clinical disclaimer and answer structure requirements, as verified by automated tests on 10+ sample queries.
+- Architected a hybrid retrieval system combining FAISS vector search and real-time web search (Serper.dev) to maximize answer relevance.
+- Integrated a HuggingFace LLM (Mistral/Mixtral) for concise, actionable response generation.
+- Deployed a secure, user-friendly Streamlit web interface with strict domain and safety controls.
+
+---
+
 ## Core Objectives
 
 1.  **Triage / Diagnosis:** Infer the most likely condition from free-text symptoms.
